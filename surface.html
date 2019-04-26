@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+	<body>
+
+		<div>
+			Pick a surface: <select id="whichSurface" onchange = "isTorus(this);">
+				<option value="sphere">Sphere</option>
+				<option value="torus">Torus</option>
+			</select><br><br>
+		</div>
+
+		<div>
+			<span class="torus" style="display: none;">Outer radius (inches)</span><span class="sphere" style="display: inline;">Radius (inches)</span>: <input type="text" size="5" name="oradius" id="oradius" value="4"><br>
+			<div class="torus" style="display: none;">Inner radius (inches): <input type="text" size="5" name="iradius" id="iradius" value="1"><br></div>
+			Number of stitches in 4 inches: <input type="text" size="5" name="sgauge" id="sgauge" value="20"><br>
+			Number of rows in 4 inches: <input type="text" size="5" name="rgauge" id="rgauge" value="24"><br><br>
+
+		<button id="knit" >Let's Knit!</button>
+		</div>
+
+		<div id="directions"></div>
+
+
+		<script>
+			function isTorus(surf) {
+				if (surf.value === "torus") {
+					Array.from(document.getElementsByClassName("torus")).map(x => x.style.display = "inline");
+					Array.from(document.getElementsByClassName("sphere")).map(x => x.style.display = "none");
+					//.map(x => x.style.display = "block");
+				} else if (surf.value === "sphere") {
+					Array.from(document.getElementsByClassName("sphere")).map(x => x.style.display = "inline");
+					Array.from(document.getElementsByClassName("torus")).map(x => x.style.display = "none");
+				} else {
+					console.log("help\n");
+				}
+			}
+
+			// Size of the shape; must be an even number for the symmetry to work nicely.
+			function numRounds(stepCircleRadius, stitchHeight) {
+				const meridian = Math.PI * stepCircleRadius;
+				let rounds = Math.round(meridian / stitchHeight + 0.5);
+				if (rounds % 2 == 1) {
+					rounds++;
+				} 
+				return rounds;
+			}
+
+			// Rotation Matrix. We're knitting with Lie Groups? Um, no.  
+			function makeMatrix(stepCircleRadius, stitchHeight) {
+				const cosine = (2 * Math.pow(stepCircleRadius, 2) - Math.pow(stitchHeight, 2)) / (2 * Math.pow(stepCircleRadius, 2));
+				const sine = Math.pow((1 - Math.pow(cosine, 2)), 0.5);
+		
+				const rotationMatrix = [ [cosine, -1 * sine ], [ sine, cosine] ];
+				return rotationMatrix;
+			}
+
+			// Rotates the point.  
+			function rotate(currentPoint, rotationMatrix) {
+				const nextx = rotationMatrix[0][0]*currentPoint[0] + rotationMatrix[0][1]*currentPoint[1];
+				const nexty = rotationMatrix[1][0]*currentPoint[0] + rotationMatrix[1][1]*currentPoint[1];
+				return [nextx, nexty];
+			}
+	
+			// Circumference is two pi r.
+			function calcStitchesInRound(toricCenter, currentx, stitchWidth) {
+				return Math.round(2 * Math.PI * (toricCenter + currentx) / stitchWidth + 0.5);
+			}
+	
+			// Start at the outer equator; step around the circle and through the hole.
+			function torusDirections(currentStitches, rounds, rotationMatrix, toricCenter,  currentPoint, stitchWidth) {
+				let directionsString = '';
+
+				for (let i = 1; i < 2 * rounds; i++) {
+					currentPoint = rotate(currentPoint, rotationMatrix);
+					let nextStitches = calcStitchesInRound(toricCenter, currentPoint[0], stitchWidth)
+
+					directionsString += 'Round ' + i + ': ';
+
+					if (nextStitches - currentStitches == 0){
+						directionsString += 'Work even. ';
+					} else {
+						if (nextStitches - currentStitches > 0) {
+							directionsString += 'Increase ';
+						} else {
+							directionsString += 'Decrease ';
+						}
+						if (Math.abs(nextStitches - currentStitches) == 1) {
+							directionsString += '1 stitch.';
+						} else {
+							directionsString += Math.abs(nextStitches - currentStitches) + ' stitches.';
+						}
+					}
+
+					directionsString += ' (' + nextStitches + ' stitches)<br>';
+
+					currentStitches = nextStitches;
+				} 
+
+				directionsString += '<p>Remove provisional cast-on, and graft the beginning to the end. Optionally fill with stuffing before closing up the torus.</p>';
+				directionsString += '</div>';
+				return directionsString;
+			}
+	
+			function sphereDirections(currentStitches, rounds, rotationMatrix, toricCenter,  currentPoint, stitchWidth) {
+				let directionsString = '';
+
+				for (let i = 1; i < rounds; i++) {
+					currentPoint = rotate(currentPoint, rotationMatrix);
+					let nextStitches = calcStitchesInRound(toricCenter, currentPoint[0], stitchWidth)
+					if (nextStitches < 4){
+						directionsString += 'Pull yarn through remaining stitches and tie off.';
+						i = rounds;
+					} else {
+						directionsString += 'Round ' + i + ': ';
+						if (nextStitches - currentStitches == 0){
+							directionsString += 'Work even. ';
+						} else {
+							if (nextStitches - currentStitches > 0) {
+								directionsString += 'Increase ';
+							} else {
+								directionsString += 'Decrease ';
+							}
+							if (Math.abs(nextStitches - currentStitches) == 1) {
+								directionsString += '1 stitch.';
+							} else {
+								directionsString += Math.abs(nextStitches - currentStitches) + ' stitches.';
+							}
+						}
+						directionsString += ' (' + nextStitches + ' stitches)<br>';
+						currentStitches = nextStitches;
+					}
+
+				} 
+				directionsString += '<p>Remove provisional cast-on and pick up stitches around the \"equator\" of the sphere. Knit one round even.</p><p>Repeat the above pattern to create the lower hemisphere. Optionally fill with stuffing before closing up the \"pole.\"';
+				directionsString += '</div>';
+	
+				return directionsString;
+			}
+		
+			document.getElementById("knit").addEventListener("click", function(){ 
+				const whichSurface = document.getElementById("whichSurface").value;
+		
+				let innerRadius = 0;
+				if (whichSurface === "torus") {
+					innerRadius = Number(document.getElementById("iradius").value);
+				} 
+				const outerRadius = Number(document.getElementById("oradius").value);
+				const stitchInFour = Number(document.getElementById("sgauge").value);
+				const rowInFour = Number(document.getElementById("rgauge").value);
+
+				// Calculate the sizes of things
+				var stepCircleRadius = (outerRadius - innerRadius) / 2.0;
+				const stitchHeight = 4 / rowInFour;
+				const stitchWidth = 4 / stitchInFour;
+		
+				const rounds = numRounds(stepCircleRadius, stitchHeight);
+				// recalculate the radius based on number of rounds
+				stepCircleRadius = (rounds * stitchHeight) / Math.PI;
+				const rotationMatrix = makeMatrix(stepCircleRadius, stitchHeight);
+				const toricCenter = innerRadius + stepCircleRadius;
+				var currentPoint = [stepCircleRadius, 0];
+		
+				var currentStitches = calcStitchesInRound(toricCenter, currentPoint[0], stitchWidth);
+
+				// Building the string with the directions
+				let directionsString = '<h3>So you want to knit a ' + whichSurface + '!</h3>';
+
+				directionsString += '<div>Most rounds you\'ll be increasing or decreasing a few stitches. Try to place the increases (or decreases) fairly evenly spaced around the round.<br>';
+				directionsString += 'With scrap yarn, provisionally cast on ' + currentStitches + ' stitches.<br>';
+				directionsString += 'Attach main color and work in the round as follows.<br><br>';
+
+				if (whichSurface === "sphere") {
+					directionsString += sphereDirections(currentStitches, rounds, rotationMatrix, toricCenter,  currentPoint, stitchWidth);
+				} else {
+					directionsString += torusDirections(currentStitches, rounds, rotationMatrix, toricCenter, currentPoint, stitchWidth);
+				}
+
+				document.getElementById("directions").innerHTML = directionsString;
+			}); 
+
+		</script>
+
+	</body>
+</html>
