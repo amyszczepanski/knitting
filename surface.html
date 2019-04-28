@@ -26,7 +26,6 @@
 				if (surf.value === "torus") {
 					Array.from(document.getElementsByClassName("torus")).map(x => x.style.display = "inline");
 					Array.from(document.getElementsByClassName("sphere")).map(x => x.style.display = "none");
-					//.map(x => x.style.display = "block");
 				} else if (surf.value === "sphere") {
 					Array.from(document.getElementsByClassName("sphere")).map(x => x.style.display = "inline");
 					Array.from(document.getElementsByClassName("torus")).map(x => x.style.display = "none");
@@ -165,7 +164,15 @@
 				// Building the string with the directions
 				let directionsString = '<h3>So you want to knit a ' + whichSurface + '!</h3>';
 
-				directionsString += '<div>Most rounds you\'ll be increasing or decreasing a few stitches. Try to place the increases (or decreases) fairly evenly spaced around the round.<br>';
+				directionsString += '<div>Most rounds you\'ll be decreasing '; 
+				if (whichSurface === "torus") {
+				  directionsString += '(or increasing) ';
+				}
+				directionsString += 'a few stitches. Try to place the decreases ';
+				if (whichSurface === "torus"){
+				  directionsString += '(or increases) ';
+				}
+				directionsString += 'fairly evenly spaced around the round.<br>';
 				directionsString += 'With scrap yarn, provisionally cast on ' + currentStitches + ' stitches.<br>';
 				directionsString += 'Attach main color and work in the round as follows.<br><br>';
 
